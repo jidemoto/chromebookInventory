@@ -2,6 +2,7 @@ var scriptTitle = "chromebookInventory Script V1.0.1 (2/1/14)";
 var scriptName = "chromebookInventory";
 var scriptTrackingId = "UA-47686431-1";
 var chromebookInventoryIconId = "0B7-FEGXAo-DGVVBJZ1RtWFlDVVE";
+var batchSize = 50;
 
 // Written by Andrew Stillman for New Visions for Public Schools
 // Published under GNU General Public License, version 3 (GPL-3.0)
@@ -34,10 +35,14 @@ function onOpen() {
     return;
   }
   menuItems.push({name:'Export full Chromebook inventory to sheet', functionName:'fetchInventory'});
-  menuItems.push({name:'Update Chromebook location, user, notes fields', functionName: 'updateInventory'});
+  menuItems.push({name:'Update Chromebook location, user, notes fields', functionName: 'startUpdate'});
   ss.addMenu('chromebookInventory', menuItems)
 }
 
+function startUpdate() {
+  var ui = HtmlService.createHtmlOutputFromFile('ui');
+  return SpreadsheetApp.getUi().showSidebar(ui);
+}
 
 function inventoryHowTo() {
   var institutionalTrackingString = NVSL.checkInstitutionalTrackingCode();
@@ -100,26 +105,26 @@ function refreshMenu() {
 }
 
 
-function updateInventory() {
-  var ok = Browser.msgBox('Are you sure?  This will update the Annotated User, Annotated Location, and Notes for all devices listed in the sheet', Browser.Buttons.OK_CANCEL);
-  if (ok == "ok") {
-    try {
-      var updatedCount = 0;
-      var ss = SpreadsheetApp.getActiveSpreadsheet();
-      var sheet = ss.getSheets()[0];
-      sheet.setName('Inventory Sheet');
-      if (sheet.getLastRow()>1) {
-        var data = NVSL.getRowsData(sheet);
-        var customerId = fetchCustomerId();
-        for (var i=0; i<data.length; i++) {
-          AdminDirectory.Chromeosdevices.update(data[i], customerId, data[i].deviceId);
-          updatedCount++;
-        }
+function updateInventory(start) {
+  try {
+  	var ss = SpreadsheetApp.getActiveSpreadsheet();
+  	var sheet = ss.getSheets()[0];
+  	var startRow = start ? start : 1;
+  	var atEnd = startRow + batchSize + 1 > sheet.getMaxRows();
+  	var numberOfRows = atEnd ? sheet.getMaxRows() - start : batchSize;
+  	var range = sheet.getRange(startRow + 1, 1, numberOfRows, sheet.getMaxColumns())
+    sheet.setName('Inventory Sheet');
+    if (sheet.getLastRow() > 1) {
+      var data = NVSL.getRowsData(sheet, range, 1);
+      var customerId = fetchCustomerId();
+      for (var i = 0; i<data.length; i++) {
+        AdminDirectory.Chromeosdevices.update(data[i], customerId, data[i].deviceId);
       }
-      Browser.msgBox(updatedCount + " Chrome devices were updated in the inventory...")
-    } catch (err) {
-      Browser.msgBox(err.message);
     }
+    
+    return startRow + batchSize + '|' + atEnd;
+  } catch (err) {
+    Browser.msgBox(err.message);
   }
 }
 

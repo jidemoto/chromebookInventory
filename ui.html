@@ -1,0 +1,32 @@
+<!-- Adapted from https://sites.google.com/site/scriptsexamples/home/announcements/timeconsumingtasksandgoogleappsscriptadd-ons -->
+<link rel="stylesheet" href="https://ssl.gstatic.com/docs/script/css/add-ons.css">
+<div style="text-align:center; margin-top:10px;margin-left:5px;margin-right:5px;">
+  <div>Rows processed:</div>
+  <div id="nbOfFilesProcessed">0</div>
+  <br>
+  <div id="syncWarning">Are you sure?  This will update the Annotated User, Annotated Location, and Notes for all devices listed in the sheet</div>
+  <button id="startButton" class="blue" onclick="start()">Start</button>
+  <div class="secondary">Close the sidebar to stop the script.</div>
+</div>
+
+<script>
+function start() {
+  document.getElementById("startButton").disabled = true;
+  document.getElementById('syncWarning').innerHTML = '';
+  google.script.run.withSuccessHandler(onSuccess).updateInventory();
+}
+
+function onSuccess(response){
+  // If server function returned a continuationToken it means the task is not complete
+  // so ask the server to process a new batch.
+  var data = response.split('|');
+  var nbOfFilesProcessedEl = document.getElementById("nbOfFilesProcessed");
+  var next = parseInt(data[0]);
+  nbOfFilesProcessedEl.innerHTML = next - 1; //less one for the header
+  if(data[1] === 'false') {  
+    google.script.run.withSuccessHandler(onSuccess).updateInventory(next);
+  } else {
+    document.getElementById("startButton").innerHTML = 'Complete!';
+  }
+}
+</script>
